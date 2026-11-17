@@ -1,6 +1,9 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { API_URL } from "@/lib/api";
+
+// The FastAPI reference lives on the backend itself (its /docs path would clash with this page).
+const API_DOCS_URL = process.env.NEXT_PUBLIC_API_DOCS_URL ?? `${API_URL}/docs`;
 import { Card, PageHeader } from "@/components/ui";
 
 const TEAM = [
@@ -161,7 +164,7 @@ export default function DocumentationPage() {
               <li>Repository documents: <code>README.md</code>, <code>docs/PROJECT_REPORT.md</code>, <code>docs/EXPERIMENT_PROTOCOL.md</code>, <code>docs/RESPONSIBLE_AI.md</code>, <code>docs/ARCHITECTURE.md</code>.</li>
               <li>
                 Interactive API reference (served by the backend):{" "}
-                <a className="text-navy-700 underline" href={`${API_URL}/docs`} target="_blank" rel="noreferrer">{API_URL}/docs</a>
+                <a className="text-navy-700 underline" href={API_DOCS_URL} target="_blank" rel="noreferrer">{API_DOCS_URL}</a>
               </li>
             </ul>
           </Section>
