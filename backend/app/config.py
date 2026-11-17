@@ -28,6 +28,8 @@ class Settings:
     llm_timeout_seconds: float
     llm_min_interval_seconds: float
     llm_concurrency: int
+    sync_execution: bool
+    demo_seed_path: Path | None
     cors_origins: list[str]
 
     @property
@@ -51,5 +53,10 @@ def get_settings() -> Settings:
         llm_min_interval_seconds=float(os.environ.get("CONTEXTSHIELD_LLM_MIN_INTERVAL", "0")),
         # Number of real-LLM calls an experiment may have in flight at once (1 = sequential).
         llm_concurrency=max(1, int(os.environ.get("CONTEXTSHIELD_LLM_CONCURRENCY", "1"))),
+        # Run experiments inside the POST request instead of a background task. Needed on
+        # serverless hosts (e.g. Vercel), which may freeze a function once it has responded.
+        sync_execution=os.environ.get("CONTEXTSHIELD_SYNC_EXECUTION", "0").lower() in ("1", "true", "yes"),
+        # Optional JSON file of stored experiments to load into an empty database (public demo).
+        demo_seed_path=Path(os.environ["CONTEXTSHIELD_DEMO_SEED"]) if os.environ.get("CONTEXTSHIELD_DEMO_SEED") else None,
         cors_origins=[origin.strip() for origin in origins.split(",") if origin.strip()],
     )

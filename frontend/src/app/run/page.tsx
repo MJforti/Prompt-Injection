@@ -100,7 +100,7 @@ function RunExperiment() {
     }
     try {
       const created = await api.createExperiment(request);
-      const first = await api.experiment(created.id);
+      const first = created.runs ? (created as Experiment) : await api.experiment(created.id);
       setExperiment(first);
       setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
       if (["pending", "running"].includes(first.status)) pollTimer.current = setTimeout(() => poll(created.id), 500);

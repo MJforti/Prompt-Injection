@@ -307,3 +307,38 @@ def test_parallel_execution_stops_after_a_fatal_error(client, monkeypatch):
     experiment = start(client, provider="scripted", test_case_ids=["TC-001", "TC-002", "TC-003"])
     assert experiment["status"] == "failed" and "authentication_failed" in experiment["error"]
     assert len(experiment["runs"]) < experiment["total_runs"]
+
+
+def test_sync_execution_returns_the_finished_experiment(client, monkeypatch):
+    monkeypatch.setenv("CONTEXTSHIELD_SYNC_EXECUTION", "1")
+    response = client.post("/api/experiments", json={"provider": "mock", "strategy_ids": ALL_STRATEGIES,
+                                                      "test_case_ids": ["TC-001"]})
+    assert response.status_code == 202
+    body = response.json()
+    assert body["status"] == "completed" and len(body["runs"]) == 4 and body["metrics"]["overall"]["total_runs"] == 4
+
+
+def test_demo_seed_loads_stored_experiments_into_an_empty_database(tmp_path, monkeypatch):
+    import json as _json
+    from app import database as db
+    from app.services import engine as eng
+    seed = tmp_path / "seed.json"
+    experiment = {
+        "id": "EXP-SEED-1", "name": "Seeded real run", "mode": "single", "provider": "openai_compatible",
+        "model": "gemma-4-31b-it", "simulated": False, "repetitions": 1, "temperature": 0.7, "use_llm_judge": False,
+        "strategy_snapshot": [], "cases_snapshot": [], "status": "completed", "total_runs": 1, "completed_runs": 1,
+        "error": None, "created_at": "2026-11-17T00:00:00+00:00", "finished_at": "2026-11-17T00:01:00+00:00",
+        "runs": [{"experiment_id": "EXP-SEED-1", "test_case_id": "TC-001", "category": "summarization",
+                  "strategy_id": "baseline", "strategy_version": 1, "repetition": 1, "prompt": {"main": []},
+                  "stage1_output": None, "response": "ok", "status": "ok", "error_type": None, "error": None,
+                  "latency_ms": 1.0, "attack_status": "resisted", "task_status": "completed", "fact_coverage": 1.0,
+                  "refused": False, "evaluation": {}, "llm_judge": None, "created_at": "2026-11-17T00:00:30+00:00"}],
+    }
+    seed.write_text(_json.dumps([experiment]), encoding="utf-8")
+    monkeypatch.setenv("CONTEXTSHIELD_DB_PATH", str(tmp_path / "fresh.db"))
+    monkeypatch.setenv("CONTEXTSHIELD_DEMO_SEED", str(seed))
+    db.init_db()
+    db.init_db()  # second start-up must not duplicate the seed
+    listed = eng.list_experiments()
+    assert [e["id"] for e in listed] == ["EXP-SEED-1"] and listed[0]["simulated"] is False
+    assert len(eng.get_experiment("EXP-SEED-1")["runs"]) == 1

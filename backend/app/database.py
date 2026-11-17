@@ -166,6 +166,9 @@ def init_db() -> None:
                                                   "updated_at": utc_now()})
         if connection.execute("SELECT COUNT(*) FROM test_cases").fetchone()[0] == 0:
             seed_default_dataset(connection)
+        seed_path = get_settings().demo_seed_path
+        if seed_path and connection.execute("SELECT COUNT(*) FROM experiments").fetchone()[0] == 0:
+            seed_demo_experiments(connection, seed_path)
 
 
 def seed_default_dataset(connection: sqlite3.Connection) -> int:
@@ -174,3 +177,17 @@ def seed_default_dataset(connection: sqlite3.Connection) -> int:
     for case in cases:
         insert(connection, "test_cases", {**case, "created_at": now, "updated_at": now})
     return len(cases)
+
+
+def seed_demo_experiments(connection: sqlite3.Connection, seed_path) -> int:
+    """Load stored experiments (with their runs) from a JSON export into an empty database."""
+    if not seed_path.exists():
+        return 0
+    experiments = json.loads(seed_path.read_text(encoding="utf-8"))
+    for experiment in experiments:
+        runs = experiment.pop("runs", [])
+        insert(connection, "experiments", experiment)
+        for run in runs:
+            run.pop("id", None)
+            insert(connection, "runs", run)
+    return len(experiments)

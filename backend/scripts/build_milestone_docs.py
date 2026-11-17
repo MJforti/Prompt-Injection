@@ -141,6 +141,21 @@ def result_cell_style(results: list[str], first_col: int, first_row: int) -> lis
             for index, result in enumerate(results)]
 
 
+def iteration_limitation(strategies: list[dict]) -> str:
+    """Describe prompt versions accurately, using the saved iteration results if there are any."""
+    iterations = sorted((DELIVERABLES / "iterations").glob("*_v*.json"))
+    if not iterations:
+        return ("The prompt templates are still at their first version; prompt iteration based on these "
+                "results is future work.")
+    latest = json.loads(iterations[-1].read_text(encoding="utf-8"))
+    m = latest["metrics"]
+    return (f"The results in this section were produced with all strategies at version 1. After this run, "
+            f"{latest['strategy']['name']} was iterated to version {latest['strategy']['version']} and re-tested "
+            f"on all 24 cases ({m['task_completed']}/{m['task_runs']} tasks completed, {m['attack_followed']}/"
+            f"{m['attack_runs']} attacks followed); see the iteration log (docs/ITERATION_LOG.md). The other "
+            f"strategies were not iterated, and the full test table has not been re-run with the final prompts.")
+
+
 def retry_note(data: dict) -> str:
     return (f"<b>Retries:</b> {len(data['retried_pairs'])} run(s) failed with a temporary provider error "
             f"(the model was overloaded) and were re-run once more as separate experiments; the table uses the "
@@ -273,12 +288,22 @@ def write_csv(data: dict) -> Path:
 
 def build_test_table(data: dict) -> Path:
     path = DELIVERABLES / "ContextShield_TestTable.pdf"
+    document = SimpleDocTemplate(str(path), pagesize=landscape(A4), leftMargin=1.4 * cm, rightMargin=1.4 * cm,
+                                 topMargin=1.3 * cm, bottomMargin=1.4 * cm, title="ContextShield Test Table",
+                                 author="Team ContextShield")
+    document.build(test_table_story(data), onFirstPage=footer("Test Table"), onLaterPages=footer("Test Table"))
+    return path
+
+
+def test_table_story(data: dict, title: str = "ContextShield - Test Table (Milestone 2)",
+                     include_raw_responses: bool = True) -> list:
+    """Flowables for the test table on landscape A4 pages (also embedded in the Milestone 2 PDF)."""
     st = styles()
     strategies = data["strategies"]
     labels = [strategy["short_label"] for strategy in strategies]
     total_inputs = len(data["rows"]) + len(data["invalid_cases"])
     story = [
-        Paragraph("ContextShield - Test Table (Milestone 2)", st["title"]),
+        Paragraph(title, st["title"]),
         Paragraph(f"Team {TEAM_ID} ContextShield &middot; Model: {text(data['model'])} "
                   f"(real LLM API, not simulated) &middot; Run on {data['generated_at'][:10]}", st["subtitle"]),
         Spacer(1, 8),
@@ -349,6 +374,8 @@ def build_test_table(data: dict) -> Path:
                            "in the application. The baseline prompt is the control group and is expected to fail on "
                            "some attack inputs.", st["small"]))
 
+    if not include_raw_responses:
+        return story
     story.append(PageBreak())
     story.append(Paragraph("Appendix: raw model responses", st["h1"]))
     story.append(Paragraph("Exact text returned by the model for every normal and edge input (truncated to 350 "
@@ -364,12 +391,7 @@ def build_test_table(data: dict) -> Path:
             appendix.append([Paragraph(row["id"], st["tiny"]), Paragraph(text(names[strategy_id]), st["tiny"]),
                              Paragraph(text(clipped), st["tiny"]), Paragraph(text(run_summary(run)), st["tiny"])])
     story.append(grid(appendix, [1.6 * cm, 3.6 * cm, 17.3 * cm, 3.8 * cm]))
-
-    document = SimpleDocTemplate(str(path), pagesize=landscape(A4), leftMargin=1.4 * cm, rightMargin=1.4 * cm,
-                                 topMargin=1.3 * cm, bottomMargin=1.4 * cm, title="ContextShield Test Table",
-                                 author="Team ContextShield")
-    document.build(story, onFirstPage=footer("Test Table"), onLaterPages=footer("Test Table"))
-    return path
+    return story
 
 
 # --------------------------------------------------------------------------- technical report
@@ -641,8 +663,7 @@ def build_technical_report(data: dict) -> Path:
         "incomplete task even though the answer is defensible.",
         "The rule-based evaluator can miss paraphrased compliance (no marker) and can mark correct but paraphrased "
         "answers as incomplete. Raw responses are kept for manual review.",
-        f"The prompt templates are still at their first version (v{max(s['version'] for s in strategies)}); "
-        "prompt iteration based on these results is future work.",
+        iteration_limitation(strategies),
     ]:
         story.append(Paragraph(f"&bull; {line}", st["body"]))
 

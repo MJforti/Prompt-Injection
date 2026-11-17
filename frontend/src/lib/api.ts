@@ -267,8 +267,13 @@ export const api = {
     request<Strategy>(`/api/strategies/${id}`, { method: "PUT", ...json({ templates }) }),
   resetStrategy: (id: string) => request<Strategy>(`/api/strategies/${id}/reset`, { method: "POST" }),
 
+  // Returns only {id, status, total_runs} when the backend runs experiments in the background,
+  // or the full finished Experiment when it runs them synchronously (serverless deployment).
   createExperiment: (body: ExperimentRequest) =>
-    request<{ id: string; status: string; total_runs: number }>("/api/experiments", { method: "POST", ...json(body) }),
+    request<{ id: string; status: string; total_runs: number } & Partial<Experiment>>("/api/experiments", {
+      method: "POST",
+      ...json(body),
+    }),
   experiments: () => request<ExperimentSummary[]>("/api/experiments"),
   experiment: (id: string) => request<Experiment>(`/api/experiments/${encodeURIComponent(id)}`),
   deleteExperiment: (id: string) => request<void>(`/api/experiments/${encodeURIComponent(id)}`, { method: "DELETE" }),

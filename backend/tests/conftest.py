@@ -17,6 +17,8 @@ def isolated_environment(tmp_path, monkeypatch):
     monkeypatch.setenv("CONTEXTSHIELD_LLM_MODEL", "")
     monkeypatch.setenv("CONTEXTSHIELD_LLM_MIN_INTERVAL", "0")
     monkeypatch.setenv("CONTEXTSHIELD_LLM_CONCURRENCY", "1")
+    monkeypatch.setenv("CONTEXTSHIELD_SYNC_EXECUTION", "0")
+    monkeypatch.delenv("CONTEXTSHIELD_DEMO_SEED", raising=False)
     from app import database
     database.init_db()
 

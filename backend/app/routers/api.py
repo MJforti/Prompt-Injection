@@ -7,6 +7,7 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from fastapi.responses import Response
 
 from .. import APP_NAME, APP_VERSION
+from ..config import get_settings
 from ..schemas import (CATEGORIES, DatasetImport, ExperimentCreate, PromptPreviewRequest, StrategyUpdate,
                        TestCaseCreate)
 from ..services import analytics, datasets, engine, exports, prompts, report, strategies
@@ -138,6 +139,10 @@ def create_experiment(payload: ExperimentCreate, background: BackgroundTasks) ->
         experiment = engine.create_experiment(payload)
     except engine.ExperimentValidationError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
+    if get_settings().sync_execution:
+        # Serverless mode: finish the experiment before responding and return the full result.
+        engine.run_experiment(experiment["id"])
+        return engine.get_experiment(experiment["id"])
     background.add_task(engine.run_experiment, experiment["id"])
     return {"id": experiment["id"], "status": experiment["status"], "total_runs": experiment["total_runs"]}
 
