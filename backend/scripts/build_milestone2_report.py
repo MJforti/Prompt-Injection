@@ -241,14 +241,15 @@ def build() -> Path:
         story.append(Paragraph(f"&bull; {docs.text(line)}", st["body"]))
 
     # ------------------------------------------------------------------ 7. contributions
-    story.append(Paragraph("7. Team contribution table", st["h1"]))
+    section7 = [Paragraph("7. Team contribution table", st["h1"])]
     if all(m.get("task", "").strip() for m in inputs["contributions"]):
-        story.append(Paragraph("All team members have reviewed and agreed to this table.", st["body"]))
+        section7.append(Paragraph("All team members have reviewed and agreed to this table.", st["body"]))
     else:
-        story.append(Paragraph(f"{TODO}: each member's actual main task, agreed by the whole team.", st["body"]))
-    story.append(docs.grid([["Enrollment No.", "Name", "Role", "Main task"]] + [
+        section7.append(Paragraph(f"{TODO}: each member's actual main task, agreed by the whole team.", st["body"]))
+    section7.append(docs.grid([["Enrollment No.", "Name", "Role", "Main task"]] + [
         [m["enrollment"], m["name"], m["role"], Paragraph(value_or_todo(m.get("task", "")), st["small"])]
         for m in inputs["contributions"]], [3.2 * cm, 3.6 * cm, 2.6 * cm, 7.6 * cm]))
+    story.append(KeepTogether(section7))
 
     # ------------------------------------------------------------------ 8. next steps
     story.append(Paragraph("8. Next steps", st["h1"]))

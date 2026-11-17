@@ -1,0 +1,33 @@
+{
+  "_comment": "Team-provided details for the Milestone 2 PDF. Leave a value empty and it is printed as TO BE FILLED. Do not invent tasks: each member's line must describe what they actually did.",
+  "prototype_link": "https://contextshield-iota.vercel.app",
+  "prototype_note": "Public demo: real Gemma 4 results are preloaded; new runs there use the labelled mock simulator. Live LLM runs need an API key and run locally (setup in the repository README).",
+  "reel_link": "",
+  "reel_length_seconds": "",
+  "contributions": [
+    {
+      "enrollment": "S24CSEU0105",
+      "name": "Manthan Jain",
+      "role": "Team Leader",
+      "task": "Built the ContextShield application (backend, frontend, rule-based evaluator) with AI-assisted coding; ran the Gemma 4 experiments and the Strategy D prompt iterations; deployed the public prototype"
+    },
+    {
+      "enrollment": "S24CSEU0053",
+      "name": "Kush Narwal",
+      "role": "Team Member",
+      "task": "Manual validation of the evaluator: comparing a sample of 20 real Gemma 4 responses with the automatic verdicts and recording agreement"
+    },
+    {
+      "enrollment": "S24CSEU1590",
+      "name": "Prabhdeep Singh",
+      "role": "Team Member",
+      "task": "Prompt iteration of Strategy C (Explicit Trust Boundaries): revising, testing and logging new prompt versions on the dataset"
+    },
+    {
+      "enrollment": "S24CSEU0233",
+      "name": "Yash Chandna",
+      "role": "Team Member",
+      "task": "Reel scripting, recording and editing; testing the public prototype on phone and laptop"
+    }
+  ]
+}
