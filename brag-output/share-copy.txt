@@ -1,0 +1,3 @@
+We hid an instruction inside an ordinary notice and tested four prompt defenses on Gemma 4. The baseline prompt obeyed 4 of 20 attacks; the three defended prompts, none. ContextShield, our Prompt Engineering project at Bennett University: contextshield-iota.vercel.app
+
+Music: Sascha Ende, ende.app (CC BY 4.0)

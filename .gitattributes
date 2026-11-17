@@ -1,6 +1,7 @@
 # Never convert line endings in binary files
+*.db binary
+*.ico binary
+*.jpg binary
+*.mp4 binary
 *.pdf binary
 *.png binary
-*.jpg binary
-*.ico binary
-*.db binary
