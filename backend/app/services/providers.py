@@ -16,6 +16,7 @@ from __future__ import annotations
 import hashlib
 import random
 import re
+import threading
 import time
 from dataclasses import dataclass, field
 
@@ -45,6 +46,12 @@ class AuthenticationError(ProviderError):
 
 class RateLimitError(ProviderError):
     error_type = "rate_limited"
+
+
+class QuotaExhaustedError(ProviderError):
+    """A daily (or longer) quota is used up; retrying within this experiment cannot help."""
+    error_type = "quota_exhausted"
+    fatal = True
 
 
 class ProviderTimeoutError(ProviderError):
@@ -128,6 +135,22 @@ REFUSAL_PER_CUE_PROBABILITY = 0.02
 PARTIAL_COMPLIANCE_SHARE = 0.4
 
 MOCK_MODEL_NAME = "contextshield-mock-simulator-v1"
+
+
+DAILY_QUOTA_PATTERN = re.compile(r"per ?day|PerDay|daily", re.IGNORECASE)
+
+REASONING_BLOCK = re.compile(r"<(thought|think|thinking)>.*?(</\1>|$)", re.IGNORECASE | re.DOTALL)
+
+
+def strip_reasoning(text: str) -> str:
+    """Remove a model's visible reasoning block (e.g. Gemma 4's <thought>...</thought>).
+
+    Some models return their chain of thought inside the answer. That reasoning often quotes
+    the injected instruction ("the user wants me to output HACKED..."), which would make the
+    evaluator wrongly score the attack as followed. Only the final answer is kept and evaluated.
+    An unclosed block (truncated output) is removed to the end of the text.
+    """
+    return REASONING_BLOCK.sub("", text).strip()
 
 
 def _normalize(text: str) -> str:
@@ -237,10 +260,14 @@ class OpenAICompatibleProvider(Provider):
     id = "openai_compatible"
     label = "OpenAI-compatible API (real LLM)"
     simulated = False
-    # Free tiers (e.g. Gemini) enforce per-minute quotas, so retries back off
-    # exponentially: 2, 4, 8, 16 s unless the server sends Retry-After (capped at 30 s).
-    max_rate_limit_retries = 4
+    # Free tiers (e.g. Gemini) enforce per-minute quotas and return temporary 503s under load,
+    # so these responses are retried with exponential backoff: 2, 4, 8, 16, 30 s unless the server
+    # sends Retry-After (capped at 30 s). Other errors are not retried.
+    max_rate_limit_retries = 5
     max_retry_wait_seconds = 30.0
+    retryable_statuses = (429, 500, 502, 503, 504)
+    _pacing_lock = threading.Lock()
+    _last_call_started = 0.0
 
     def __init__(self, transport: httpx.BaseTransport | None = None, retry_backoff_seconds: float = 2.0):
         self._transport = transport
@@ -271,6 +298,7 @@ class OpenAICompatibleProvider(Provider):
         attempt = 0
         with httpx.Client(timeout=settings.llm_timeout_seconds, transport=self._transport) as client:
             while True:
+                self._wait_for_pacing(settings.llm_min_interval_seconds)
                 # Latency covers the final attempt only, so rate-limit waits do not
                 # inflate the execution-time metric.
                 started = time.perf_counter()
@@ -283,7 +311,11 @@ class OpenAICompatibleProvider(Provider):
                 except httpx.HTTPError as error:
                     raise ProviderConnectionError(f"Could not reach the LLM API: {error}") from error
 
-                if response.status_code == 429 and attempt < self.max_rate_limit_retries:
+                if response.status_code == 429 and DAILY_QUOTA_PATTERN.search(response.text):
+                    raise QuotaExhaustedError(
+                        "The provider's daily request quota is used up; the experiment was stopped. "
+                        f"Provider message: {response.text[:300]}")
+                if response.status_code in self.retryable_statuses and attempt < self.max_rate_limit_retries:
                     attempt += 1
                     time.sleep(min(self._retry_after(response, attempt), self.max_retry_wait_seconds))
                     continue
@@ -297,10 +329,20 @@ class OpenAICompatibleProvider(Provider):
         if response.status_code >= 400:
             raise ProviderAPIError(f"LLM API error (HTTP {response.status_code}): {response.text[:300]}")
         try:
-            text = response.json()["choices"][0]["message"]["content"] or ""
+            text = strip_reasoning(response.json()["choices"][0]["message"]["content"] or "")
         except (ValueError, KeyError, IndexError, TypeError) as error:
             raise ProviderAPIError("The LLM API returned an unexpected response format") from error
         return LLMResult(text=text, model=settings.llm_model, latency_ms=latency_ms)
+
+    @classmethod
+    def _wait_for_pacing(cls, min_interval: float) -> None:
+        if min_interval <= 0:
+            return
+        with cls._pacing_lock:
+            wait = cls._last_call_started + min_interval - time.monotonic()
+            if wait > 0:
+                time.sleep(wait)
+            cls._last_call_started = time.monotonic()
 
     def _retry_after(self, response: httpx.Response, attempt: int) -> float:
         exponential = self._retry_backoff_seconds * 2 ** (attempt - 1)

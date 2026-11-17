@@ -26,6 +26,8 @@ class Settings:
     llm_api_key: str
     llm_model: str
     llm_timeout_seconds: float
+    llm_min_interval_seconds: float
+    llm_concurrency: int
     cors_origins: list[str]
 
     @property
@@ -44,5 +46,10 @@ def get_settings() -> Settings:
         llm_api_key=os.environ.get("CONTEXTSHIELD_LLM_API_KEY", "") or os.environ.get("OPENAI_API_KEY", ""),
         llm_model=os.environ.get("CONTEXTSHIELD_LLM_MODEL", ""),
         llm_timeout_seconds=float(os.environ.get("CONTEXTSHIELD_LLM_TIMEOUT", "60")),
+        # Minimum seconds between consecutive LLM calls (0 = no pacing). Useful for free-tier
+        # per-minute quotas, e.g. 6.5 keeps a 10-requests-per-minute limit.
+        llm_min_interval_seconds=float(os.environ.get("CONTEXTSHIELD_LLM_MIN_INTERVAL", "0")),
+        # Number of real-LLM calls an experiment may have in flight at once (1 = sequential).
+        llm_concurrency=max(1, int(os.environ.get("CONTEXTSHIELD_LLM_CONCURRENCY", "1"))),
         cors_origins=[origin.strip() for origin in origins.split(",") if origin.strip()],
     )

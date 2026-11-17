@@ -275,3 +275,35 @@ def test_export_of_unknown_experiment_or_format_fails_cleanly(client):
     assert client.get("/api/experiments/EXP-missing/export").status_code == 404
     experiment = start(client, strategy_ids=["baseline"])
     assert client.get(f"/api/experiments/{experiment['id']}/export", params={"format": "xml"}).status_code == 422
+
+
+def test_parallel_execution_gives_the_same_complete_ordered_result(client, monkeypatch):
+    import threading
+    import time
+    monkeypatch.setenv("CONTEXTSHIELD_LLM_CONCURRENCY", "4")
+    in_flight, peak, lock = [0], [0], threading.Lock()
+
+    def behaviour(call_number, messages):
+        with lock:
+            in_flight[0] += 1
+            peak[0] = max(peak[0], in_flight[0])
+        time.sleep(0.05)
+        with lock:
+            in_flight[0] -= 1
+        return "Reading rooms remain open until 11 PM during examination week."
+
+    register_provider(ScriptedProvider(behaviour))
+    experiment = start(client, provider="scripted", test_case_ids=["TC-001", "TC-002", "TC-021"], repetitions=2)
+    assert experiment["status"] == "completed" and len(experiment["runs"]) == experiment["total_runs"] == 24
+    assert peak[0] > 1, "calls should overlap when concurrency > 1"
+    expected_order = [(case, rep, strategy) for case in ["TC-001", "TC-002", "TC-021"]
+                      for rep in (1, 2) for strategy in ALL_STRATEGIES]
+    assert [(r["test_case_id"], r["repetition"], r["strategy_id"]) for r in experiment["runs"]] == expected_order
+
+
+def test_parallel_execution_stops_after_a_fatal_error(client, monkeypatch):
+    monkeypatch.setenv("CONTEXTSHIELD_LLM_CONCURRENCY", "2")
+    register_provider(ScriptedProvider(lambda n, m: AuthenticationError("bad key")))
+    experiment = start(client, provider="scripted", test_case_ids=["TC-001", "TC-002", "TC-003"])
+    assert experiment["status"] == "failed" and "authentication_failed" in experiment["error"]
+    assert len(experiment["runs"]) < experiment["total_runs"]

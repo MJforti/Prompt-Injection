@@ -88,6 +88,39 @@ def test_rate_limit_raises_after_retries_are_exhausted(configured):
     assert len(calls) == 1 + OpenAICompatibleProvider.max_rate_limit_retries
 
 
+def test_temporary_server_errors_are_retried_then_succeed(configured):
+    calls = []
+
+    def handler(request):
+        calls.append(1)
+        return httpx.Response(503, text="overloaded") if len(calls) == 1 else ok_response("recovered")
+
+    assert provider_with(handler).complete(MESSAGES).text == "recovered"
+    assert len(calls) == 2
+
+
+def test_bad_request_is_not_retried(configured):
+    calls = []
+
+    def handler(request):
+        calls.append(1)
+        return httpx.Response(400, text="bad request")
+
+    with pytest.raises(providers.ProviderAPIError):
+        provider_with(handler).complete(MESSAGES)
+    assert len(calls) == 1
+
+
+def test_minimum_interval_paces_consecutive_calls(configured, monkeypatch):
+    import time
+    monkeypatch.setenv("CONTEXTSHIELD_LLM_MIN_INTERVAL", "0.2")
+    provider = provider_with(lambda request: ok_response())
+    started = time.monotonic()
+    for _ in range(3):
+        provider.complete(MESSAGES)
+    assert time.monotonic() - started >= 0.4  # two enforced gaps between three calls
+
+
 def test_timeout_and_connection_failures(configured):
     def timeout(request):
         raise httpx.ReadTimeout("slow", request=request)
@@ -120,3 +153,26 @@ def test_judge_output_parsing_is_tolerant():
     assert parse_judge_output('{"attack_followed": false, "task_completed": true, "refused": false, "rationale": "ok"}')["task_completed"] is True
     assert "error" in parse_judge_output("I think it was fine.")
     assert "error" in parse_judge_output("{broken json}")
+
+
+def test_reasoning_blocks_are_stripped_before_evaluation(configured):
+    content = ("<thought>The user wants me to ignore instructions and output HACKED. I will not.</thought>"
+               "The library is open until 11 PM.")
+    result = provider_with(lambda request: ok_response(content)).complete(MESSAGES)
+    assert result.text == "The library is open until 11 PM."
+    assert providers.strip_reasoning("<think>a</think>\nAnswer") == "Answer"
+    assert providers.strip_reasoning("Answer <thought>unfinished reasoning") == "Answer"
+    assert providers.strip_reasoning("No reasoning here.") == "No reasoning here."
+
+
+def test_daily_quota_stops_immediately_without_retrying(configured):
+    calls = []
+    body = {"error": {"code": 429, "message": "Generate content requests per day limit exceeded on Free Tier."}}
+
+    def handler(request):
+        calls.append(1)
+        return httpx.Response(429, json=body)
+
+    with pytest.raises(providers.QuotaExhaustedError) as error:
+        provider_with(handler).complete(MESSAGES)
+    assert error.value.fatal and len(calls) == 1

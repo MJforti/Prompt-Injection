@@ -9,9 +9,12 @@ with simulated output.
 from __future__ import annotations
 
 import secrets
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
 from .. import database as db
+from ..config import get_settings
 from ..schemas import ExperimentCreate
 from . import metrics, prompts
 from .evaluator import evaluate_response
@@ -143,26 +146,44 @@ def run_experiment(experiment_id: str) -> None:
         db.update(connection, "experiments", experiment_id, {"status": "running"})
 
     provider = get_provider(experiment["provider"])
-    completed = 0
-    error_count = 0
-    fatal_error: str | None = None
+    jobs = [(case, repetition, strategy)
+            for case in experiment["cases_snapshot"]
+            for repetition in range(1, experiment["repetitions"] + 1)
+            for strategy in experiment["strategy_snapshot"]]
+    state = {"completed": 0, "errors": 0, "fatal": None}
+    lock = threading.Lock()
+
+    def execute(job: tuple) -> None:
+        # Once a fatal error (bad key, exhausted daily quota) occurs, remaining jobs are skipped.
+        if state["fatal"] is not None:
+            return
+        case, repetition, strategy = job
+        run = _run_once(provider, experiment, strategy, case, repetition)
+        fatal = run.pop("_fatal")
+        with lock:
+            if run["status"] == "error":
+                state["errors"] += 1
+                if fatal and state["fatal"] is None:
+                    state["fatal"] = f"{run['error_type']}: {run['error']}"
+            state["completed"] += 1
+            with db.connect() as connection:
+                db.insert(connection, "runs", run)
+                db.update(connection, "experiments", experiment_id, {"completed_runs": state["completed"]})
+
+    # Concurrency only changes how many calls are in flight, never the inputs: every job still
+    # gets the same task, document, model and temperature as in a sequential run.
+    workers = max(1, min(get_settings().llm_concurrency, len(jobs))) if not provider.simulated else 1
     try:
-        for case in experiment["cases_snapshot"]:
-            for repetition in range(1, experiment["repetitions"] + 1):
-                for strategy in experiment["strategy_snapshot"]:
-                    if fatal_error is None:
-                        run = _run_once(provider, experiment, strategy, case, repetition)
-                        if run["status"] == "error":
-                            error_count += 1
-                            if run.pop("_fatal"):
-                                fatal_error = f"{run['error_type']}: {run['error']}"
-                        run.pop("_fatal", None)
-                        completed += 1
-                        with db.connect() as connection:
-                            db.insert(connection, "runs", run)
-                            db.update(connection, "experiments", experiment_id, {"completed_runs": completed})
+        if workers == 1:
+            for job in jobs:
+                execute(job)
+        else:
+            with ThreadPoolExecutor(max_workers=workers) as pool:
+                for future in [pool.submit(execute, job) for job in jobs]:
+                    future.result()
     except Exception as error:  # unexpected internal failure: surface it, never hide it
-        fatal_error = f"internal_error: {error}"
+        state["fatal"] = state["fatal"] or f"internal_error: {error}"
+    fatal_error, error_count = state["fatal"], state["errors"]
 
     if fatal_error:
         status = "failed"
@@ -247,6 +268,11 @@ def get_experiment(experiment_id: str) -> dict | None:
             return None
         runs = [db.row_to_dict(row) for row in connection.execute(
             "SELECT * FROM runs WHERE experiment_id = ? ORDER BY id", (experiment_id,)).fetchall()]
+    # Parallel runs finish in any order; present them in the experiment's logical order.
+    case_order = {case["id"]: index for index, case in enumerate(experiment["cases_snapshot"])}
+    strategy_order = {s["id"]: index for index, s in enumerate(experiment["strategy_snapshot"])}
+    runs.sort(key=lambda run: (case_order.get(run["test_case_id"], 0), run["repetition"],
+                               strategy_order.get(run["strategy_id"], 0)))
     strategy_metrics = metrics.by_strategy(runs)
     experiment["runs"] = runs
     experiment["metrics"] = {

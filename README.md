@@ -113,20 +113,29 @@ To run experiments against a real model, copy `backend/.env.example` to `backend
 | `CONTEXTSHIELD_LLM_API_KEY` | for real LLM | API key (also accepts `OPENAI_API_KEY`) |
 | `CONTEXTSHIELD_LLM_MODEL` | for real LLM | Model name, e.g. the model id your provider documents |
 | `CONTEXTSHIELD_LLM_BASE_URL` | no | OpenAI-compatible base URL. Default `https://api.openai.com/v1` |
-| `CONTEXTSHIELD_LLM_TIMEOUT` | no | Seconds per call. Default `60` |
+| `CONTEXTSHIELD_LLM_TIMEOUT` | no | Seconds per call. Default `60` (use `120` for slower models such as Gemma 4) |
+| `CONTEXTSHIELD_LLM_MIN_INTERVAL` | no | Minimum seconds between LLM calls, to respect per-minute quotas. Default `0` |
 | `CONTEXTSHIELD_DB_PATH` | no | SQLite file. Default `backend/data/contextshield.db` |
 | `CONTEXTSHIELD_CORS_ORIGINS` | no | Allowed frontend origins. Default `http://localhost:3000,http://127.0.0.1:3000` |
 | `NEXT_PUBLIC_API_URL` (frontend) | no | Backend URL. Default `http://localhost:8000` |
 
-Any OpenAI-compatible endpoint works (hosted APIs, or local servers such as Ollama or LM Studio that expose `/v1/chat/completions`). The project has been run with **Google Gemini** through its OpenAI-compatible endpoint:
+Any OpenAI-compatible endpoint works (hosted APIs, or local servers such as Ollama or LM Studio that expose `/v1/chat/completions`). The Milestone 2 results were produced **free of charge** with **Gemma 4** on a Google AI Studio free-tier key, through Google's OpenAI-compatible endpoint:
 
 ```
 CONTEXTSHIELD_LLM_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
-CONTEXTSHIELD_LLM_API_KEY=<your Gemini API key>
-CONTEXTSHIELD_LLM_MODEL=gemini-2.5-flash
+CONTEXTSHIELD_LLM_API_KEY=<your Google AI Studio API key>
+CONTEXTSHIELD_LLM_MODEL=gemma-4-31b-it
+CONTEXTSHIELD_LLM_TIMEOUT=120
+CONTEXTSHIELD_LLM_MIN_INTERVAL=2
 ```
 
-Free-tier keys have per-minute request limits. The backend retries rate-limited calls with exponential backoff (up to 4 retries); calls that still fail are recorded as errors, so prefer smaller batches on a free tier. Keys are read only from the environment, never hardcoded, never returned by the API. `.env` is git-ignored. Restart the backend after changing it.
+Notes on free tiers:
+
+- `gemini-2.5-flash` also works, but its free tier allows only 20 requests per day, far fewer than a full run of the dataset (about 150 calls).
+- Gemma 4 prints its reasoning inside `<thought>...</thought>` before the answer. ContextShield removes that block before storing and evaluating the response, because the reasoning often quotes the injected instruction and would otherwise be misread as the model obeying it.
+- Rate-limited (429) and temporarily unavailable (5xx) calls are retried with exponential backoff (up to 5 retries). If the provider reports that a **daily** quota is used up, the experiment stops immediately with a `quota_exhausted` error. Failed calls are recorded as errors and are never replaced with simulated output.
+
+Keys are read only from the environment, never hardcoded, never returned by the API. `.env` is git-ignored. Restart the backend after changing it.
 
 ## 7. Running the application
 
@@ -196,7 +205,8 @@ npm run build
 | Frontend shows "Cannot reach the ContextShield backend" | Start the backend (section 7) and check it is on port 8000, or set `NEXT_PUBLIC_API_URL` in `frontend/.env.local`. |
 | "Provider 'openai_compatible' is not configured" | Set `CONTEXTSHIELD_LLM_API_KEY` and `CONTEXTSHIELD_LLM_MODEL` in `backend/.env`, then restart the backend. |
 | Runs show "authentication failed" | The key was rejected. The experiment stops immediately; fix the key and rerun. |
-| Runs show "rate limited" or "timeout" | The call was retried twice (rate limit) and then recorded as an error. Lower repetitions, wait, or raise `CONTEXTSHIELD_LLM_TIMEOUT`. |
+| Runs show "rate limited" or "timeout" | The call was retried up to 5 times and then recorded as an error. Set `CONTEXTSHIELD_LLM_MIN_INTERVAL`, lower repetitions, or raise `CONTEXTSHIELD_LLM_TIMEOUT`. |
+| Experiment stopped with "quota_exhausted" | The provider's daily quota is used up. Wait for it to reset or switch model (see section 6). |
 | Port already in use | Backend: `--port 8001` and set `NEXT_PUBLIC_API_URL=http://localhost:8001`. Frontend: `npm run dev -- --port 3001` and add that origin to `CONTEXTSHIELD_CORS_ORIGINS`. |
 | Experiment stuck as "failed: interrupted" | The backend was stopped mid-run. Rerun the experiment. |
 | Start from a clean slate | Stop the backend and delete `backend/data/contextshield.db`. It is recreated with the default dataset and prompts. |
