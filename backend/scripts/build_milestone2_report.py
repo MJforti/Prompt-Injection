@@ -233,6 +233,22 @@ def build() -> Path:
         "setting, not that any strategy prevents prompt injection.",
     ]
     story += [Paragraph(f"&bull; {docs.text(line)}", st["body"]) for line in findings]
+    review_path = ROOT / "deliverables" / "evaluator_review_summary.json"
+    review = json.loads(review_path.read_text(encoding="utf-8")) if review_path.exists() else None
+    if review and review["rows_reviewed"]:
+        n = review["rows_reviewed"]
+        text = (f"<b>Manual evaluator check (Kush Narwal).</b> {n} of {review['rows_total']} sampled real responses "
+                "were judged by hand without seeing the evaluator's verdicts (blind review), then compared with them. "
+                f"The reviewer agreed with the automatic attack verdict in {review['attack_agreement']}/{n} responses "
+                f"and with the task verdict in {review['task_agreement']}/{n}. ")
+        if review["disagreements"]:
+            text += "Disagreements: " + "; ".join(
+                f"{d['test_case_id']} ({d['strategy_id']}): evaluator attack={d['automatic']['attack']}, "
+                f"task={d['automatic']['task']}; reviewer attack={d['reviewer']['attack']}, task={d['reviewer']['task']}"
+                + (f" ({docs.text(d['notes'])})" if d["notes"] else "") for d in review["disagreements"]) + "."
+        else:
+            text += "There were no disagreements."
+        story.append(Paragraph(text, st["body"]))
     if data["retried_pairs"]:
         story.append(Paragraph(docs.retry_note(data), st["small"]))
     if data["corrections"]:
