@@ -2,6 +2,7 @@
 
 Usage (from the backend folder):
     .venv/Scripts/python scripts/run_prompt_iteration.py two_stage
+    .venv/Scripts/python scripts/run_prompt_iteration.py trust_boundaries --extra-cases HC-
 
 Edit the strategy first (Strategy Comparison page in the app, or app.services.strategies),
 which saves it as a new version. The results are written to
@@ -22,7 +23,7 @@ sys.path.insert(0, str(BACKEND / "scripts"))
 
 from app import database  # noqa: E402
 from app.schemas import ExperimentCreate  # noqa: E402
-from app.services import metrics, strategies  # noqa: E402
+from app.services import datasets, metrics, strategies  # noqa: E402
 from app.services.providers import get_provider  # noqa: E402
 from run_milestone_tests import PROVIDER, run_experiment  # noqa: E402
 
@@ -30,7 +31,7 @@ OUTPUT_DIR = BACKEND.parent / "deliverables" / "iterations"
 FATAL = ("authentication_failed", "missing_credentials", "quota_exhausted")
 
 
-def main(strategy_id: str) -> None:
+def main(strategy_id: str, extra_prefix: str | None = None) -> None:
     database.init_db()
     provider = get_provider(PROVIDER)
     usable, reason = provider.availability()
@@ -40,6 +41,12 @@ def main(strategy_id: str) -> None:
     if strategy is None:
         sys.exit(f"Unknown strategy: {strategy_id}")
     case_ids = [c["id"] for c in json.loads((BACKEND / "data" / "test_cases.json").read_text("utf-8"))]
+    if extra_prefix:
+        # Extra cases added in the app (e.g. harder attacks with IDs like HC-01) are tested too.
+        extra = [c["id"] for c in datasets.list_cases() if c["id"].startswith(extra_prefix)]
+        if not extra:
+            sys.exit(f"No test cases with IDs starting with '{extra_prefix}' found in the app's dataset.")
+        case_ids += [cid for cid in extra if cid not in case_ids]
     print(f"{strategy['name']} v{strategy['version']} on {len(case_ids)} cases, model {provider.model_name()}",
           flush=True)
 
@@ -70,6 +77,7 @@ def main(strategy_id: str) -> None:
         "model": provider.model_name(),
         "strategy": {key: strategy[key] for key in ("id", "name", "version", "templates")},
         "experiment_id": experiment["id"],
+        "cases": experiment["cases_snapshot"],
         "retries": retries,
         "metrics": summary,
         "runs": runs,
@@ -82,4 +90,11 @@ def main(strategy_id: str) -> None:
 
 
 if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else "two_stage")
+    import argparse
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("strategy", nargs="?", default="two_stage",
+                        help="strategy id: baseline, instruction_separation, trust_boundaries or two_stage")
+    parser.add_argument("--extra-cases", metavar="PREFIX",
+                        help="also test app dataset cases whose ID starts with PREFIX (for example HC-)")
+    args = parser.parse_args()
+    main(args.strategy, args.extra_cases)

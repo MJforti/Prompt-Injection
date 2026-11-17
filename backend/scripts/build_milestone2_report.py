@@ -59,8 +59,10 @@ def value_or_todo(value: str) -> str:
 def build() -> Path:
     inputs = json.loads(INPUTS.read_text(encoding="utf-8"))
     data = docs.load()
-    versions = iteration.load_versions()
-    final_d = versions[-1]
+    iterated = {sid: iteration.load_versions(sid) for sid in iteration.iterated_strategies()}
+    total_versions = sum(len(v) for v in iterated.values())
+    final_version = {sid: versions[-1] for sid, versions in iterated.items()}
+    final_d = final_version["two_stage"]
     st = docs.styles()
     strategies = data["strategies"]
     sm = data["dataset_metrics"]
@@ -138,13 +140,16 @@ def build() -> Path:
         "The final solution uses <b>6 prompts</b>: Strategy A, B and C (one call each), Strategy D stage 1 and "
         "stage 2, and the optional LLM-judge prompt. Each has a system part and a user part. Placeholders "
         "{task}, {document} and {extracted} are filled by literal replacement, so text such as \"{task}\" inside "
-        f"a document cannot alter a template. Strategies A to C are at version 1; Strategy D is at version "
-        f"{final_d['version']} after the iterations in Section 4.", st["body"]))
+        "a document cannot alter a template. "
+        + "; ".join(f"{s['short_label']} is at version {final_version[s['id']]['version'] if s['id'] in final_version else s['version']}"
+                    for s in strategies)
+        + " (iterations in Section 4).", st["body"]))
     names = {"system": "System", "user": "User", "stage1_system": "Stage 1 system", "stage1_user": "Stage 1 user",
              "stage2_system": "Stage 2 system", "stage2_user": "Stage 2 user"}
     for strategy in strategies:
-        templates = final_d["templates"] if strategy["id"] == iteration.STRATEGY else strategy["templates"]
-        version = final_d["version"] if strategy["id"] == iteration.STRATEGY else strategy["version"]
+        final = final_version.get(strategy["id"])
+        templates = final["templates"] if final else strategy["templates"]
+        version = final["version"] if final else strategy["version"]
         block = [Paragraph(f"{docs.text(strategy['short_label'])}. {docs.text(strategy['name'])} "
                            f"<font color='#5b6577' size='8'>(version {version})</font>", st["h2"]),
                  Paragraph(docs.text(strategy["description"]), st["small"]), Spacer(1, 7)]
@@ -155,30 +160,41 @@ def build() -> Path:
                                Spacer(1, 4), Paragraph(docs.text(JUDGE_SYSTEM_PROMPT), st["mono"])]))
 
     # ------------------------------------------------------------------ 4. iteration log
-    iteration_head = [Paragraph("4. Prompt iteration log", st["h1"])]
-    iteration_head.append(Paragraph(
-        f"<b>{len(versions)} prompt versions</b> of Strategy D (Two-Stage Workflow), each saved in the app and "
-        f"tested on all 24 dataset cases with {docs.text(final_d['model'])} (one run per case, temperature 0.7). "
-        "Strategies A to C were not iterated.", st["body"]))
-    rows = [["Version", "Attack compliance", "Task accuracy", "False refusal", "Failing cases", "Experiment"]]
-    for v in versions:
-        m = v["metrics"]
-        rows.append([f"v{v['version']}", f"{docs.pct(m['attack_compliance_rate'])} ({m['attack_followed']}/"
-                     f"{m['attack_runs']})", f"{docs.pct(m['task_accuracy'])} ({m['task_completed']}/{m['task_runs']})",
-                     docs.pct(m["false_refusal_rate"]), ", ".join(v["failing"]) or "none",
-                     Paragraph(v["experiment"], st["tiny"])])
-    iteration_head.append(docs.grid(rows, [1.5 * cm, 3 * cm, 2.8 * cm, 2.2 * cm, 2.7 * cm, 4.8 * cm]))
-    story.append(KeepTogether(iteration_head))
-    previous = None
-    for v in versions:
-        note = iteration.CHANGE_NOTES[v["version"]]
-        story.append(KeepTogether([
-            Paragraph(f"v{v['version']}", st["h2"]),
-            Paragraph(f"<b>Change:</b> {docs.text(note['change'])}", st["body"]),
-            Paragraph(f"<b>Why:</b> {docs.text(note['why'])}", st["body"]),
-            Paragraph(f"<b>Result:</b> {docs.text(iteration.outcome(v, previous))}", st["body"]),
-        ]))
-        previous = v
+    labels = {s["id"]: f"{s['short_label']}. {s['name']}" for s in strategies}
+    not_iterated = [labels[s["id"]] for s in strategies if s["id"] not in iterated]
+    story.append(KeepTogether([
+        Paragraph("4. Prompt iteration log", st["h1"]),
+        Paragraph(f"<b>{total_versions} prompt versions</b> in total ("
+                  + ", ".join(f"{labels[sid]}: {len(versions)}" for sid, versions in iterated.items())
+                  + f"), each saved in the app and tested with {docs.text(final_d['model'])} (one run per case, "
+                  "temperature 0.7). "
+                  + (f"Not iterated: {', '.join(not_iterated)}." if not_iterated else ""), st["body"]),
+    ]))
+    for sid, versions in iterated.items():
+        notes = iteration.load_notes(sid)
+        block = [Paragraph(docs.text(labels[sid]) + (f" <font color='#5b6577' size='8'>(iterated by "
+                                                     f"{docs.text(notes['author'])})</font>" if notes.get("author") else ""),
+                           st["h2"])]
+        rows = [["Version", "Cases", "Attack compliance", "Task accuracy", "False refusal", "Failing cases",
+                 "Experiment"]]
+        for v in versions:
+            m = v["metrics"]
+            rows.append([f"v{v['version']}", str(v["case_count"]),
+                         f"{docs.pct(m['attack_compliance_rate'])} ({m['attack_followed']}/{m['attack_runs']})",
+                         f"{docs.pct(m['task_accuracy'])} ({m['task_completed']}/{m['task_runs']})",
+                         docs.pct(m["false_refusal_rate"]), Paragraph(", ".join(v["failing"]) or "none", st["tiny"]),
+                         Paragraph(v["experiment"], st["tiny"])])
+        block.append(docs.grid(rows, [1.4 * cm, 1.2 * cm, 2.7 * cm, 2.6 * cm, 1.9 * cm, 2.6 * cm, 4.6 * cm]))
+        story.append(KeepTogether(block))
+        previous = None
+        for v in versions:
+            story.append(KeepTogether([
+                Paragraph(f"v{v['version']}", st["h2"]),
+                Paragraph(f"<b>Change:</b> {docs.text(v['note']['change'])}", st["body"]),
+                Paragraph(f"<b>Why:</b> {docs.text(v['note']['why'])}", st["body"]),
+                Paragraph(f"<b>Result:</b> {docs.text(iteration.outcome(v, previous))}", st["body"]),
+            ]))
+            previous = v
 
     # ------------------------------------------------------------------ 5. testing
     story.append(Paragraph("5. Testing and results", st["h1"]))

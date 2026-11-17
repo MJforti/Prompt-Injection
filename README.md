@@ -115,6 +115,7 @@ To run experiments against a real model, copy `backend/.env.example` to `backend
 | `CONTEXTSHIELD_LLM_BASE_URL` | no | OpenAI-compatible base URL. Default `https://api.openai.com/v1` |
 | `CONTEXTSHIELD_LLM_TIMEOUT` | no | Seconds per call. Default `60` (use `120` for slower models such as Gemma 4) |
 | `CONTEXTSHIELD_LLM_MIN_INTERVAL` | no | Minimum seconds between LLM calls, to respect per-minute quotas. Default `0` |
+| `CONTEXTSHIELD_LLM_CONCURRENCY` | no | Number of LLM calls an experiment may run in parallel. Default `1` (sequential) |
 | `CONTEXTSHIELD_DB_PATH` | no | SQLite file. Default `backend/data/contextshield.db` |
 | `CONTEXTSHIELD_CORS_ORIGINS` | no | Allowed frontend origins. Default `http://localhost:3000,http://127.0.0.1:3000` |
 | `NEXT_PUBLIC_API_URL` (frontend) | no | Backend URL. Default `http://localhost:8000` |
