@@ -37,6 +37,12 @@ class Settings:
         return bool(self.llm_api_key and self.llm_model)
 
 
+def _backend_path(value: str) -> Path:
+    """Resolve a relative path against the backend folder, not the process working directory."""
+    path = Path(value)
+    return path if path.is_absolute() else BACKEND_DIR / path
+
+
 def get_settings() -> Settings:
     origins = os.environ.get(
         "CONTEXTSHIELD_CORS_ORIGINS",
@@ -57,6 +63,6 @@ def get_settings() -> Settings:
         # serverless hosts (e.g. Vercel), which may freeze a function once it has responded.
         sync_execution=os.environ.get("CONTEXTSHIELD_SYNC_EXECUTION", "0").lower() in ("1", "true", "yes"),
         # Optional JSON file of stored experiments to load into an empty database (public demo).
-        demo_seed_path=Path(os.environ["CONTEXTSHIELD_DEMO_SEED"]) if os.environ.get("CONTEXTSHIELD_DEMO_SEED") else None,
+        demo_seed_path=_backend_path(os.environ["CONTEXTSHIELD_DEMO_SEED"]) if os.environ.get("CONTEXTSHIELD_DEMO_SEED") else None,
         cors_origins=[origin.strip() for origin in origins.split(",") if origin.strip()],
     )
