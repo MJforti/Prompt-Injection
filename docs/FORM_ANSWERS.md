@@ -90,11 +90,11 @@ https://github.com/MJforti/Prompt-Injection
 **22. Main task of each team member**
 ```
 S24CSEU0105 – Manthan Jain – Built the ContextShield application (backend, frontend, rule-based evaluator) with AI-assisted coding; ran the Gemma 4 experiments; iterated Strategies D and C (including 9 harder test cases); AI-assisted evaluator check and test-table spot-check; deployed the public prototype
-S24CSEU0053 – Kush Narwal – Reviewed the final Milestone 2 submission (PDF, Technical Report, form answers and reel) and confirmed it before submission
-S24CSEU1590 – Prabhdeep Singh – Reviewed the final Milestone 2 submission (PDF, Technical Report, form answers and reel) and confirmed it before submission
+S24CSEU0053 – Kush Narwal – Verified the results: cross-checked 10 test-table rows against the live prototype and the 20-response evaluator check sheet; proofread the Technical Report and Milestone 2 PDF before submission
+S24CSEU1590 – Prabhdeep Singh – Verified the prompt iterations: checked the 6 iteration-log versions (Strategies C and D) against the stored prompts and results in the GitHub repo; proofread the form answers and reviewed the reel before submission
 S24CSEU0233 – Yash Chandna – Reel scripting, recording and editing; testing the public prototype on phone and laptop
 ```
-These lines must stay true: Kush and Prabhdeep must actually read the PDF, Technical Report, form answers and reel and reply that they agree before you submit. They match Section 7 of the Milestone 2 PDF.
+These lines must stay true: Kush and Prabhdeep must actually do the checks in `docs/TEAM_REVIEW_CHECKLIST.md` and reply that they agree before you submit. They match Section 7 of the Milestone 2 PDF.
 
 **23. Anything the evaluator should know? (optional)**
 ```
