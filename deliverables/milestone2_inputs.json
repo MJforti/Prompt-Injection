@@ -2,8 +2,8 @@
   "_comment": "Team-provided details for the Milestone 2 PDF. Leave a value empty and it is printed as TO BE FILLED. Do not invent tasks: each member's line must describe what they actually did.",
   "prototype_link": "https://contextshield-iota.vercel.app",
   "prototype_note": "Public demo: real Gemma 4 results are preloaded; new runs there use the labelled mock simulator. Live LLM runs need an API key and run locally (setup in the repository README).",
-  "reel_link": "",
-  "reel_length_seconds": "",
+  "reel_link": "https://youtube.com/shorts/W7dHbWGYRo8",
+  "reel_length_seconds": "115",
   "contributions": [
     {
       "enrollment": "S24CSEU0105",

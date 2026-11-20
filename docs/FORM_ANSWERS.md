@@ -103,15 +103,17 @@ Public demo: https://contextshield-iota.vercel.app shows our real Gemma 4 experi
 
 ## ⏳ Pending: fill in when the team's work is done
 
-**13. Reel link** (Yash). Unlisted YouTube or Google Drive with "Anyone with the link can view". Test it in a private/incognito window.
+**13. Reel link**
 ```
-⏳ PENDING
+https://youtube.com/shorts/W7dHbWGYRo8
 ```
+Checked: it plays without signing in.
 
-**14. Reel length in seconds** (Yash). Must be between 90 and 150; enter the exact length of the uploaded video.
+**14. Reel length in seconds**
 ```
-⏳ PENDING
+115
 ```
+The video is 114.75 s long; YouTube shows 1:55.
 
 **18. Number of prompt versions in the iteration log.** Currently **3** (Strategy D v1–v3). When Prabhdeep's Strategy C versions are added, this becomes 3 + his number of versions. Use the total shown at the top of `docs/ITERATION_LOG.md` after the log is rebuilt, which also appears in Section 4 of the Milestone 2 PDF.
 ```
@@ -124,7 +126,7 @@ Public demo: https://contextshield-iota.vercel.app shows our real Gemma 4 experi
 
 ## Final checklist before submitting
 
-- [ ] Yash's reel is uploaded, viewable by link, 90–150 s; Q13 and Q14 filled in.
+- [x] Reel uploaded and viewable by link (115 s); Q13 and Q14 filled in.
 - [ ] Kush's review sheet is scored; Section 5 of the Milestone 2 PDF shows the result.
 - [ ] Prabhdeep's Strategy C versions are logged; Q18 matches the total in the iteration log and PDF Section 4.
 - [ ] Milestone 2 PDF rebuilt with no "TO BE FILLED" left; uploaded for Q21.
