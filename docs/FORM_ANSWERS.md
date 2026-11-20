@@ -89,7 +89,7 @@ https://github.com/MJforti/Prompt-Injection
 
 **22. Main task of each team member**
 ```
-S24CSEU0105 – Manthan Jain – Built the app (AI-assisted), ran the Gemma 4 experiments, iterated Strategies C and D, deployed the prototype
+S24CSEU0105 – Manthan Jain – Built the app, ran the Gemma 4 experiments, iterated Strategies C and D, deployed the prototype
 S24CSEU0053 – Kush Narwal – Verified test-table results and evaluator verdicts; proofread the Technical Report and PDF
 S24CSEU1590 – Prabhdeep Singh – Verified the 6 prompt iterations against stored results; reviewed the form answers and reel
 S24CSEU0233 – Yash Chandna – Scripted, recorded and edited the reel; tested the prototype
