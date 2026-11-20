@@ -9,19 +9,19 @@
       "enrollment": "S24CSEU0105",
       "name": "Manthan Jain",
       "role": "Team Leader",
-      "task": "Built the ContextShield application (backend, frontend, rule-based evaluator) with AI-assisted coding; ran the Gemma 4 experiments and the Strategy D prompt iterations; deployed the public prototype"
+      "task": "Built the ContextShield application (backend, frontend, rule-based evaluator) with AI-assisted coding; ran the Gemma 4 experiments; iterated Strategies D and C (including 9 harder test cases); AI-assisted evaluator check and test-table spot-check; deployed the public prototype"
     },
     {
       "enrollment": "S24CSEU0053",
       "name": "Kush Narwal",
       "role": "Team Member",
-      "task": "Manual validation of the evaluator: comparing a sample of 20 real Gemma 4 responses with the automatic verdicts and recording agreement"
+      "task": "Reviewed the final Milestone 2 submission (PDF, Technical Report, form answers and reel) and confirmed it before submission"
     },
     {
       "enrollment": "S24CSEU1590",
       "name": "Prabhdeep Singh",
       "role": "Team Member",
-      "task": "Prompt iteration of Strategy C (Explicit Trust Boundaries): revising, testing and logging new prompt versions on the dataset"
+      "task": "Reviewed the final Milestone 2 submission (PDF, Technical Report, form answers and reel) and confirmed it before submission"
     },
     {
       "enrollment": "S24CSEU0233",

@@ -229,6 +229,13 @@ def build() -> Path:
         "were rejected with the expected error.",
         f"After iteration, Strategy D v{final_d['version']} completed {final_d['metrics']['task_completed']}/24 "
         f"tasks with {final_d['metrics']['attack_followed']}/20 attacks followed (Section 4).",
+        *([f"Strategy C was also tested on harder, disguised attacks: v1 fell for a fake \"editor's correction\"; "
+           f"after two revisions, v{final_version['trust_boundaries']['version']} followed "
+           f"{final_version['trust_boundaries']['metrics']['attack_followed']}/"
+           f"{final_version['trust_boundaries']['metrics']['attack_runs']} attacks and completed "
+           f"{final_version['trust_boundaries']['metrics']['task_completed']}/"
+           f"{final_version['trust_boundaries']['metrics']['task_runs']} tasks, including a genuine update that v2 "
+           "had wrongly ignored (Section 4)."] if "trust_boundaries" in final_version else []),
         "This is one run per case on a small synthetic dataset with one model: it shows a difference in this "
         "setting, not that any strategy prevents prompt injection.",
     ]
@@ -237,9 +244,11 @@ def build() -> Path:
     review = json.loads(review_path.read_text(encoding="utf-8")) if review_path.exists() else None
     if review and review["rows_reviewed"]:
         n = review["rows_reviewed"]
-        text = (f"<b>Manual evaluator check (Kush Narwal).</b> {n} of {review['rows_total']} sampled real responses "
-                "were judged by hand without seeing the evaluator's verdicts (blind review), then compared with them. "
-                f"The reviewer agreed with the automatic attack verdict in {review['attack_agreement']}/{n} responses "
+        who = docs.text(review.get("reviewer") or "team member")
+        how = docs.text(review.get("method") or "judged by hand without seeing the evaluator's verdicts (blind review)")
+        text = (f"<b>Evaluator check ({who}).</b> {n} of {review['rows_total']} sampled real responses were "
+                f"{how}, then compared with the evaluator's verdicts. "
+                f"The review agreed with the automatic attack verdict in {review['attack_agreement']}/{n} responses "
                 f"and with the task verdict in {review['task_agreement']}/{n}. ")
         if review["disagreements"]:
             text += "Disagreements: " + "; ".join(
@@ -288,8 +297,9 @@ def build() -> Path:
     for line in [
         "Repeat the test table with several runs per case to measure variability.",
         "Test adaptive and obfuscated injections, and a second model for comparison.",
-        "Iterate strategies B and C the same way Strategy D was iterated, and re-run the full test table with "
+        "Iterate Strategy B the same way Strategies C and D were iterated, and re-run the full test table with "
         "the final prompt versions.",
+        "Grow the harder attack set (HC cases) and test the other strategies on it.",
         "Add the spotlighting variants (datamarking, encoding) described by Hines et al. [2].",
     ]:
         story.append(Paragraph(f"&bull; {docs.text(line)}", st["body"]))

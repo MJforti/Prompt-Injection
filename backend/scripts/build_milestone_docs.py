@@ -143,17 +143,26 @@ def result_cell_style(results: list[str], first_col: int, first_row: int) -> lis
 
 def iteration_limitation(strategies: list[dict]) -> str:
     """Describe prompt versions accurately, using the saved iteration results if there are any."""
-    iterations = sorted((DELIVERABLES / "iterations").glob("*_v*.json"))
-    if not iterations:
+    latest_by_strategy: dict[str, dict] = {}
+    for path in sorted((DELIVERABLES / "iterations").glob("*_v*.json"), key=lambda p: int(p.stem.rsplit("v", 1)[1])):
+        data = json.loads(path.read_text(encoding="utf-8"))
+        latest_by_strategy[data["strategy"]["id"]] = data
+    if not latest_by_strategy:
         return ("The prompt templates are still at their first version; prompt iteration based on these "
                 "results is future work.")
-    latest = json.loads(iterations[-1].read_text(encoding="utf-8"))
-    m = latest["metrics"]
-    return (f"The results in this section were produced with all strategies at version 1. After this run, "
-            f"{latest['strategy']['name']} was iterated to version {latest['strategy']['version']} and re-tested "
-            f"on all 24 cases ({m['task_completed']}/{m['task_runs']} tasks completed, {m['attack_followed']}/"
-            f"{m['attack_runs']} attacks followed); see the iteration log (docs/ITERATION_LOG.md). The other "
-            f"strategies were not iterated, and the full test table has not been re-run with the final prompts.")
+    parts = []
+    for data in latest_by_strategy.values():
+        m = data["metrics"]
+        cases = len({run["test_case_id"] for run in data["runs"]})
+        parts.append(f"{data['strategy']['name']}, now version {data['strategy']['version']} ({m['task_completed']}/"
+                     f"{m['task_runs']} tasks completed and {m['attack_followed']}/{m['attack_runs']} attacks followed "
+                     f"on {cases} cases)")
+    iterated = set(latest_by_strategy)
+    others = [s["name"] for s in strategies if s["id"] not in iterated]
+    return ("The results in this section were produced with all strategies at version 1. After this run, these "
+            "strategies were iterated and re-tested (see docs/ITERATION_LOG.md): " + "; ".join(parts) + ". "
+            + (f"Not iterated: {', '.join(others)}. " if others else "")
+            + "The full test table has not been re-run with the final prompts.")
 
 
 def retry_note(data: dict) -> str:

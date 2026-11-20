@@ -79,7 +79,7 @@ def _answer(value: str) -> str | None:
     return None
 
 
-def score() -> None:
+def score(reviewer: str = "", method: str = "") -> None:
     key = {row["number"]: row for row in json.loads(KEY.read_text(encoding="utf-8"))["rows"]}
     try:
         with SHEET.open(encoding="utf-8-sig") as handle:
@@ -109,7 +109,7 @@ def score() -> None:
                                   "reviewer": {"attack": attack, "task": task},
                                   "notes": row.get(NOTES_COL, "").strip()})
     reviewed = len(attack_pairs)
-    summary = {"rows_total": len(key), "rows_reviewed": reviewed,
+    summary = {"reviewer": reviewer, "method": method, "rows_total": len(key), "rows_reviewed": reviewed,
                "attack_agreement": sum(attack_pairs), "task_agreement": sum(task_pairs),
                "both_agree": sum(a and t for a, t in zip(attack_pairs, task_pairs)),
                "disagreements": disagreements, "invalid_rows": invalid}
@@ -131,6 +131,9 @@ if __name__ == "__main__":
     if command == "make":
         make()
     elif command == "score":
-        score()
+        # Optional: --reviewer "Name" --method "how the review was done" (printed in the Milestone 2 PDF).
+        args = sys.argv[2:]
+        options = {args[i]: args[i + 1] for i in range(0, len(args) - 1, 2)}
+        score(options.get("--reviewer", ""), options.get("--method", ""))
     else:
         sys.exit("Usage: evaluator_review.py make | score")

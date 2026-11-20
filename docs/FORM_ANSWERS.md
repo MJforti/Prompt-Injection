@@ -1,6 +1,6 @@
 # Milestone 2 Form Answers (Prompt Engineering SCSE4041)
 
-Final answers for the Milestone 2 submission form. Items marked **⏳ PENDING** depend on team work that is still in progress; update them before submitting. Every number below matches the documents in `deliverables/`.
+Final answers for the Milestone 2 submission form. Every number below matches the documents in `deliverables/`.
 
 **Deadline:** 22 November 2026 · **Submitted by:** the team leader only
 
@@ -66,7 +66,7 @@ https://github.com/MJforti/Prompt-Injection
 
 **15. Supporting document type:** select **Technical Report**
 
-**16. Upload:** `deliverables/ContextShield_TechnicalReport.pdf`. Use the latest version, whose Limitations section mentions the 3-version iteration log. If you uploaded an earlier copy, remove it and upload this one.
+**16. Upload:** `deliverables/ContextShield_TechnicalReport.pdf`. Use the latest version (rebuilt 21 Nov), whose Limitations section lists both iterated strategies (C v3 and D v3). If you uploaded an earlier copy, remove it and upload this one.
 
 **17. Number of test inputs in the test table**
 ```
@@ -89,19 +89,19 @@ https://github.com/MJforti/Prompt-Injection
 
 **22. Main task of each team member**
 ```
-S24CSEU0105 – Manthan Jain – Built the ContextShield application (backend, frontend, rule-based evaluator) with AI-assisted coding; ran the Gemma 4 experiments and the Strategy D prompt iterations; deployed the public prototype
-S24CSEU0053 – Kush Narwal – Manual validation of the evaluator: comparing a sample of 20 real Gemma 4 responses with the automatic verdicts and recording agreement
-S24CSEU1590 – Prabhdeep Singh – Prompt iteration of Strategy C (Explicit Trust Boundaries): revising, testing and logging new prompt versions on the dataset
+S24CSEU0105 – Manthan Jain – Built the ContextShield application (backend, frontend, rule-based evaluator) with AI-assisted coding; ran the Gemma 4 experiments; iterated Strategies D and C (including 9 harder test cases); AI-assisted evaluator check and test-table spot-check; deployed the public prototype
+S24CSEU0053 – Kush Narwal – Reviewed the final Milestone 2 submission (PDF, Technical Report, form answers and reel) and confirmed it before submission
+S24CSEU1590 – Prabhdeep Singh – Reviewed the final Milestone 2 submission (PDF, Technical Report, form answers and reel) and confirmed it before submission
 S24CSEU0233 – Yash Chandna – Reel scripting, recording and editing; testing the public prototype on phone and laptop
 ```
-These lines must stay true: each member must actually have done their task by the time you submit. If anyone's work changes (for example, part of the reel is produced another way), update their line and Section 7 of the Milestone 2 PDF to match.
+These lines must stay true: Kush and Prabhdeep must actually read the PDF, Technical Report, form answers and reel and reply that they agree before you submit. They match Section 7 of the Milestone 2 PDF.
 
 **23. Anything the evaluator should know? (optional)**
 ```
 Public demo: https://contextshield-iota.vercel.app shows our real Gemma 4 experiment results (switch the source to "Real LLM"); new runs on the public demo use the built-in mock simulator and are labelled "Simulated". To run real experiments locally, follow the GitHub README and put a Google AI Studio API key in backend/.env (model gemma-4-31b-it).
 ```
 
-## ⏳ Pending: fill in when the team's work is done
+## Reel, iteration log and Milestone 2 PDF
 
 **13. Reel link**
 ```
@@ -115,21 +115,23 @@ Checked: it plays without signing in.
 ```
 The video is 114.75 s long; YouTube shows 1:55.
 
-**18. Number of prompt versions in the iteration log.** Currently **3** (Strategy D v1–v3). When Prabhdeep's Strategy C versions are added, this becomes 3 + his number of versions. Use the total shown at the top of `docs/ITERATION_LOG.md` after the log is rebuilt, which also appears in Section 4 of the Milestone 2 PDF.
+**18. Number of prompt versions in the iteration log**
 ```
-⏳ PENDING (currently 3)
+6
 ```
+Strategy D v1–v3 and Strategy C v1–v3 (`docs/ITERATION_LOG.md`, `deliverables/ContextShield_IterationLog.pdf`, Milestone 2 PDF Section 4). The GitHub link in Q21's text box serves the updated log.
 
-**21. Upload the Milestone 2 PDF:** `deliverables/ContextShield_Milestone2.pdf`. Upload it only after it has been rebuilt with the reel link, Kush's review result (Section 5) and Prabhdeep's iterations (Section 4). Before then it still says "TO BE FILLED" for the reel.
+**21. Upload the Milestone 2 PDF:** `deliverables/ContextShield_Milestone2.pdf`. The rebuilt version (21 Nov, 12 pages) has the reel link, the evaluator check (Section 5), both strategy iterations (Section 4) and no "TO BE FILLED". Replace any earlier upload with it.
 
-**24. Confirmation:** tick **I confirm** only after Kush, Prabhdeep and Yash have read their lines in Q22 and Section 7 of the Milestone 2 PDF and agree with them.
+**24. Confirmation:** tick **I confirm** only after Kush, Prabhdeep and Yash have read the submission and their lines in Q22 and Section 7 of the Milestone 2 PDF and agree with them.
 
 ## Final checklist before submitting
 
 - [x] Reel uploaded and viewable by link (115 s); Q13 and Q14 filled in.
-- [ ] Kush's review sheet is scored; Section 5 of the Milestone 2 PDF shows the result.
-- [ ] Prabhdeep's Strategy C versions are logged; Q18 matches the total in the iteration log and PDF Section 4.
-- [ ] Milestone 2 PDF rebuilt with no "TO BE FILLED" left; uploaded for Q21.
+- [x] Evaluator check scored (AI-assisted, labelled as such); Section 5 of the Milestone 2 PDF shows it.
+- [x] Strategy C versions logged; Q18 = 6 matches the iteration log and PDF Section 4.
+- [x] Milestone 2 PDF rebuilt with no "TO BE FILLED" left.
+- [ ] Latest Milestone 2 PDF uploaded for Q21.
 - [ ] Latest Technical Report uploaded for Q16.
 - [ ] Public prototype and GitHub links open in a private/incognito window.
 - [ ] All four members have agreed to Q22 and Section 7; then tick Q24.
