@@ -17,6 +17,12 @@ updates:
     groups:
       frontend-minor-patch:
         update-types: ["minor", "patch"]
+    ignore:
+      # The README supports Node.js 20+, so the Node type definitions stay on
+      # the oldest supported major. Otherwise code could type-check against
+      # Node APIs that Node 20 does not have.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
