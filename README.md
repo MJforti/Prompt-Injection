@@ -46,7 +46,7 @@ ContextShield is a research and evaluation platform that runs the **same task an
 - **Experiment history** stored in SQLite, including a snapshot of the prompts and test cases used.
 - **Exports**: CSV, JSON, and a PDF research report with charts.
 - **Mock simulator** so everything works without an API key. Simulated results are labelled everywhere and never mixed with real results.
-- **86 automated backend tests.**
+- **95 automated backend tests.**
 
 ## 3. Architecture
 
