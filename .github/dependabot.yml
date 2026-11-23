@@ -23,6 +23,12 @@ updates:
       # Node APIs that Node 20 does not have.
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
+      # `typescript` stays on 6.0 for Next.js and typescript-eslint, which load its
+      # JavaScript API (typescript-eslint supports < 6.1). Type checking already
+      # runs on TypeScript 7 through the `typescript7` alias. Remove this rule once
+      # typescript-eslint supports TypeScript 7.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
 
   - package-ecosystem: "github-actions"
     directory: "/"

@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "node node_modules/typescript7/bin/tsc --noEmit"
   },
   "dependencies": {
     "lucide-react": "^1.77.0",
@@ -24,6 +24,7 @@
     "eslint": "^10",
     "eslint-config-next": "16.4.6",
     "tailwindcss": "4.3.5",
-    "typescript": "^5"
+    "typescript": "~6.0.3",
+    "typescript7": "npm:typescript@^7.0.2"
   }
 }
