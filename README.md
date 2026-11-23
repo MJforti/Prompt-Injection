@@ -1,5 +1,8 @@
 # ContextShield
 
+[![Backend tests](https://github.com/MJforti/Prompt-Injection/actions/workflows/backend.yml/badge.svg)](https://github.com/MJforti/Prompt-Injection/actions/workflows/backend.yml)
+[![Frontend checks](https://github.com/MJforti/Prompt-Injection/actions/workflows/frontend.yml/badge.svg)](https://github.com/MJforti/Prompt-Injection/actions/workflows/frontend.yml)
+
 **Evaluating Prompt-Engineering Strategies Against Indirect Prompt Injection**
 
 *"Testing the boundaries of trust in LLMs."*
@@ -158,7 +161,10 @@ npm run dev
 
 Then open **http://localhost:3000**. The interactive API reference is at http://localhost:8000/docs.
 
-On Windows you can instead double-click `start.bat` in the project root, which opens both in separate windows.
+Or start both at once from the project root:
+
+- **Windows:** double-click `start.bat`, which opens each in its own window.
+- **macOS/Linux:** run `./start.sh`. It checks that the backend venv and frontend packages are installed, runs both servers in one terminal, and stops both on Ctrl+C.
 
 ## 8. Running experiments
 
@@ -198,6 +204,8 @@ npm run lint
 npm run typecheck
 npm run build
 ```
+
+GitHub Actions runs both on every push to `main` and on pull requests: the backend tests on Python 3.11 and 3.12 (`.github/workflows/backend.yml`), and the frontend checks on Node.js 20 and 24 (`.github/workflows/frontend.yml`).
 
 ## 11. Troubleshooting
 
