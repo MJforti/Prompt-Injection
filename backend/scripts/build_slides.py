@@ -28,7 +28,7 @@ import build_final_report as report  # noqa: E402
 import build_iteration_log as iteration  # noqa: E402
 import build_milestone_docs as docs  # noqa: E402
 
-OUTPUT = ROOT / "deliverables" / "ContextShield_Slides.pdf"
+OUTPUT = ROOT / "deliverables" / "ContextShield_Slides_generated.pdf"  # the submitted deck (ContextShield_Slides.pdf) was redesigned in Canva
 W, H = 960, 540
 NAVY, TEAL, CORAL = docs.NAVY, report.TEAL, report.CORAL
 INK = colors.HexColor("#1e293b")
