@@ -5,6 +5,7 @@
 *.mp4 binary
 *.pdf binary
 *.png binary
+*.pptx binary
 
 # Shell scripts must keep LF endings to run on macOS/Linux/WSL
 *.sh text eol=lf

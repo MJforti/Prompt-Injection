@@ -1,0 +1,37 @@
+{
+  "_comment": "Team details for the Milestone 3 final report and slides. Tasks and percentages must describe what each member actually did and must be agreed by the whole team.",
+  "batch": "B01-12",
+  "faculty": "Dr. Sonal Kukreja",
+  "prototype_link": "https://contextshield-iota.vercel.app",
+  "reel_link": "https://youtube.com/shorts/W7dHbWGYRo8",
+  "contributions": [
+    {
+      "enrollment": "S24CSEU0105",
+      "name": "Manthan Jain",
+      "role": "Team Leader",
+      "percentage": 40,
+      "task": "Built the app, ran the Gemma 4 experiments, iterated Strategies C and D, ran the final comparison, deployed the prototype, wrote the reports and slides"
+    },
+    {
+      "enrollment": "S24CSEU0053",
+      "name": "Kush Narwal",
+      "role": "Team Member",
+      "percentage": 20,
+      "task": "Verified test-table results and evaluator verdicts; proofread the Technical Report and PDF"
+    },
+    {
+      "enrollment": "S24CSEU1590",
+      "name": "Prabhdeep Singh",
+      "role": "Team Member",
+      "percentage": 20,
+      "task": "Verified the 6 prompt iterations against stored results; reviewed the form answers and reel"
+    },
+    {
+      "enrollment": "S24CSEU0233",
+      "name": "Yash Chandna",
+      "role": "Team Member",
+      "percentage": 20,
+      "task": "Scripted, recorded and edited the reel; tested the prototype"
+    }
+  ]
+}
