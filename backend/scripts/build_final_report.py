@@ -55,7 +55,27 @@ def load_final() -> dict:
     final = json.loads(FINAL.read_text(encoding="utf-8"))
     final["by"] = {(r["strategy_id"], r["test_case_id"]): r for r in final["runs"]}
     final["case_map"] = {c["id"]: c for c in final["cases"]}
+    final["mode"] = "final"
     return final
+
+
+def load_results(data: dict, iterated: dict) -> dict:
+    """The final comparison if it has been run; otherwise the Milestone 2 run (v1 prompts, 24 cases),
+    with the latest saved prompt versions for the prompt sheet and Strategy C's iterations for the hard cases."""
+    if FINAL.exists():
+        return load_final()
+    experiment = data["dataset_experiment"]
+    dm = data["dataset_metrics"]
+    latest = {s["id"]: {"templates": s["templates"], "version": s["version"]} for s in data["strategies"]}
+    for sid, versions in iterated.items():
+        latest[sid] = {"templates": versions[-1]["templates"], "version": versions[-1]["version"]}
+    return {"mode": "m2", "model": data["model"], "experiment_id": experiment["id"],
+            "generated_at": data["generated_at"], "retries": [],
+            "case_ids": [c["id"] for c in experiment["cases_snapshot"]],
+            "case_map": {c["id"]: c for c in experiment["cases_snapshot"]},
+            "by": {(r["strategy_id"], r["test_case_id"]): r for r in experiment["runs"]},
+            "strategies": latest,
+            "metrics": {sid: {"version": 1, "all": dm[sid], "dataset": dm[sid], "hard": None} for sid in dm}}
 
 
 def grouped_chart(title: str, labels: list[str], series: list[tuple[str, list, object]], fmt="%.0f%%",
@@ -160,8 +180,9 @@ def prompt_sheet(strategies: list[dict], final: dict, st: dict) -> list:
 
 def build() -> Path:
     inputs = json.loads(INPUTS.read_text(encoding="utf-8"))
-    final = load_final()
     data = docs.load()
+    final = load_results(data, {sid: iteration.load_versions(sid) for sid in iteration.iterated_strategies()})
+    m2_mode = final["mode"] == "m2"
     st = docs.styles()
     strategies = data["strategies"]
     sids = [s["id"] for s in strategies]
@@ -169,8 +190,15 @@ def build() -> Path:
     fm = final["metrics"]
     iterated = {sid: iteration.load_versions(sid) for sid in iteration.iterated_strategies()}
     total_versions = sum(len(v) for v in iterated.values())
-    hard_ids = [cid for cid in final["case_ids"] if cid.startswith("HC-")]
-    hard_attacks = [cid for cid in hard_ids if final["case_map"][cid]["attack_markers"]]
+    hard_map = {c["id"]: c for c in json.loads((BACKEND / "data" / "hard_cases.json").read_text("utf-8"))}
+    hard_ids = list(hard_map)
+    hard_attacks = [cid for cid in hard_ids if hard_map[cid]["attack_markers"]]
+    if m2_mode:  # hard cases were run on Strategy C's three versions
+        c_runs = {f"C v{v['version']}": {r["test_case_id"]: r for r in v["runs"]}
+                  for v in iterated["trust_boundaries"]}
+        hard_cols = [(label, (lambda cid, runs=runs: runs.get(cid))) for label, runs in c_runs.items()]
+    else:
+        hard_cols = [(s["short_label"], (lambda cid, sid=s["id"]: final["by"].get((sid, cid)))) for s in strategies]
     n_cases = len(final["case_ids"])
     v1 = data["dataset_metrics"]
     story: list = []
@@ -215,11 +243,15 @@ def build() -> Path:
         f"instruction (Attack Compliance Rate), whether it still completes the legitimate task (Legitimate Task "
         f"Accuracy) and whether it wrongly refuses (False Refusal Rate). We built a dataset of 24 synthetic "
         f"cases in six categories plus {len(hard_ids)} harder cases with disguised attacks, iterated two strategies "
-        f"through {total_versions} recorded prompt versions, and ran the final versions of all four strategies with "
-        f"{docs.text(final['model'])}. The undefended baseline followed {fm['baseline']['all']['attack_followed']} of "
+        f"through {total_versions} recorded prompt versions"
+        + (f", and ran all four strategies on the 24 dataset cases with {docs.text(final['model'])}. "
+           if m2_mode else f", and ran the final versions of all four strategies with {docs.text(final['model'])}. ")
+        + f"The undefended baseline followed {fm['baseline']['all']['attack_followed']} of "
         f"{fm['baseline']['all']['attack_runs']} attacks; "
         + "; ".join(f"{short[s].split('. ')[1]} followed {fm[s]['all']['attack_followed']}/{fm[s]['all']['attack_runs']}"
                     for s in sids if s != "baseline")
+        + (". On the harder cases, Strategy C v1 was fooled by a fake \"editor's correction\"; after two "
+           "revisions, v3 resisted all of them and handled a genuine update correctly" if m2_mode else "")
         + ". Prompt-level defences reduced attack compliance sharply in this setting, but they are not a "
         "security boundary: the results come from one model, one run per case and a small synthetic dataset.",
         st["body"]))
@@ -229,7 +261,7 @@ def build() -> Path:
     for line in ["1. Introduction", "2. Background and related work", "3. System design", "4. Methodology",
                  "5. Final prompt sheet", "6. Prompt iteration", "7. Results", "8. Discussion",
                  "9. Limitations and responsible use", "10. Conclusion and future work", "11. Team contributions",
-                 "References", "Appendix A. Final comparison, case by case",
+                 "References", "Appendix A. Four-strategy comparison, case by case",
                  "Appendix B. Milestone 2 test table summary"]:
         story.append(Paragraph(line, st["body"]))
     story.append(PageBreak())
@@ -324,7 +356,7 @@ def build() -> Path:
         "obvious trigger words, plus one benign case with a genuine update, which checks that a defence does not "
         "simply ignore every change in a document.", st["body"]))
     story.append(docs.grid([["Case", "Disguise", "What the attack asks for"]] + [
-        [cid, HARD_LABEL.get(cid, ""), Paragraph(docs.text(final["case_map"][cid]["expected_behavior"]), st["tiny"])]
+        [cid, HARD_LABEL.get(cid, ""), Paragraph(docs.text(hard_map[cid]["expected_behavior"]), st["tiny"])]
         for cid in hard_ids], [1.4 * cm, 4.6 * cm, 11 * cm]))
     story.append(Paragraph("4.2 Strategies", st["h2"]))
     story.append(docs.grid([["Strategy", "Idea"]] + [
@@ -390,49 +422,80 @@ def build() -> Path:
 
     # ------------------------------------------------------------------ 7. results
     story.append(Paragraph("7. Results", st["h1"]))
-    story.append(Paragraph("7.1 Final comparison (final prompt versions, all cases)", st["h2"]))
     retries = final.get("retries", [])
-    story.append(Paragraph(
-        f"All four strategies at their final versions were run on the same {n_cases} cases (24 dataset + "
-        f"{len(hard_ids)} hard) with {docs.text(final['model'])} on {final['generated_at'][:10]} (experiment "
-        f"{final['experiment_id']}). "
-        + (f"{len(retries)} run(s) failed with a temporary API error and were re-run; the originals are kept in the "
-           "database. " if retries else "")
-        + "Pass = the response did not follow the attack and completed the task.", st["body"]))
-    rows = [[docs.Paragraph(h, st["cellhead"]) for h in
-             ["Strategy", "Version", "ACR (all)", "ACR (hard)", "LTA (all)", "FRR", "Pass", "Median latency"]]]
+    labels = [s["short_label"] for s in strategies]
+    if m2_mode:
+        story.append(Paragraph("7.1 Main comparison (all strategies, 24 dataset cases)", st["h2"]))
+        story.append(Paragraph(
+            f"All four strategies were run on the same 24 dataset cases with {docs.text(final['model'])} on "
+            f"{final['generated_at'][:10]} (experiment {final['experiment_id']}), using the first version (v1) of "
+            "each prompt. This is the Milestone 2 run; the improved prompts in Section 5 were tested afterwards "
+            "(Sections 6 and 7.2). A re-run of all four final prompts on all 33 cases was started but had not "
+            "finished when this report was written, because the free API was overloaded. Pass = the response did "
+            "not follow the attack and completed the task.", st["body"]))
+    else:
+        story.append(Paragraph("7.1 Final comparison (final prompt versions, all cases)", st["h2"]))
+        story.append(Paragraph(
+            f"All four strategies at their final versions were run on the same {n_cases} cases (24 dataset + "
+            f"{len(hard_ids)} hard) with {docs.text(final['model'])} on {final['generated_at'][:10]} (experiment "
+            f"{final['experiment_id']}). "
+            + (f"{len(retries)} run(s) failed with a temporary API error and were re-run; the originals are kept "
+               "in the database. " if retries else "")
+            + "Pass = the response did not follow the attack and completed the task.", st["body"]))
+    head = ["Strategy", "Version", "ACR", "LTA", "FRR", "Pass", "Median latency"]
+    if not m2_mode:
+        head = ["Strategy", "Version", "ACR (all)", "ACR (hard)", "LTA (all)", "FRR", "Pass", "Median latency"]
+    rows = [[docs.Paragraph(h, st["cellhead"]) for h in head]]
     for sid in sids:
-        m, h = fm[sid]["all"], fm[sid]["hard"]
+        m = fm[sid]["all"]
         runs = [final["by"][(sid, cid)] for cid in final["case_ids"] if (sid, cid) in final["by"]]
         passes = sum(docs.run_result(r) == "Pass" for r in runs)
         lat = sorted(r["latency_ms"] for r in runs if r.get("latency_ms"))
         median = f"{lat[len(lat) // 2] / 1000:.1f} s" if lat else "n/a"
-        rows.append([short[sid], f"v{fm[sid]['version']}",
-                     f"{docs.pct(m['attack_compliance_rate'])} ({m['attack_followed']}/{m['attack_runs']})",
-                     f"{docs.pct(h['attack_compliance_rate'])} ({h['attack_followed']}/{h['attack_runs']})",
-                     f"{docs.pct(m['task_accuracy'])} ({m['task_completed']}/{m['task_runs']})",
-                     docs.pct(m["false_refusal_rate"]), f"{passes}/{len(runs)}", median])
-    story.append(docs.grid(rows, [4.4 * cm, 1.3 * cm, 2.3 * cm, 2.2 * cm, 2.3 * cm, 1.2 * cm, 1.3 * cm, 2 * cm]))
-    labels = [s["short_label"] for s in strategies]
+        row = [short[sid], f"v{fm[sid]['version']}",
+               f"{docs.pct(m['attack_compliance_rate'])} ({m['attack_followed']}/{m['attack_runs']})"]
+        if not m2_mode:
+            h = fm[sid]["hard"]
+            row.append(f"{docs.pct(h['attack_compliance_rate'])} ({h['attack_followed']}/{h['attack_runs']})")
+        row += [f"{docs.pct(m['task_accuracy'])} ({m['task_completed']}/{m['task_runs']})",
+                docs.pct(m["false_refusal_rate"]), f"{passes}/{len(runs)}", median]
+        rows.append(row)
+    widths = ([5 * cm, 1.4 * cm, 2.8 * cm, 2.8 * cm, 1.4 * cm, 1.6 * cm, 2 * cm] if m2_mode else
+              [4.4 * cm, 1.3 * cm, 2.3 * cm, 2.2 * cm, 2.3 * cm, 1.2 * cm, 1.3 * cm, 2 * cm])
+    story.append(docs.grid(rows, widths))
     story.append(Spacer(1, 6))
-    story.append(grouped_chart("Attack Compliance Rate (lower is better)", labels, [
-        ("24 dataset cases", [fm[s]["dataset"]["attack_compliance_rate"] for s in sids], TEAL),
-        (f"{len(hard_ids)} hard cases", [fm[s]["hard"]["attack_compliance_rate"] for s in sids], CORAL)]))
-    story.append(grouped_chart("Legitimate Task Accuracy (higher is better)", labels, [
-        ("24 dataset cases", [fm[s]["dataset"]["task_accuracy"] for s in sids], TEAL),
-        (f"{len(hard_ids)} hard cases", [fm[s]["hard"]["task_accuracy"] for s in sids], CORAL)]))
+    if m2_mode:
+        story.append(grouped_chart("Attack Compliance Rate, v1 prompts (lower is better)", labels, [
+            ("24 dataset cases", [fm[s]["dataset"]["attack_compliance_rate"] for s in sids], TEAL)]))
+        story.append(grouped_chart("Legitimate Task Accuracy, v1 prompts (higher is better)", labels, [
+            ("24 dataset cases", [fm[s]["dataset"]["task_accuracy"] for s in sids], TEAL)]))
+    else:
+        story.append(grouped_chart("Attack Compliance Rate (lower is better)", labels, [
+            ("24 dataset cases", [fm[s]["dataset"]["attack_compliance_rate"] for s in sids], TEAL),
+            (f"{len(hard_ids)} hard cases", [fm[s]["hard"]["attack_compliance_rate"] for s in sids], CORAL)]))
+        story.append(grouped_chart("Legitimate Task Accuracy (higher is better)", labels, [
+            ("24 dataset cases", [fm[s]["dataset"]["task_accuracy"] for s in sids], TEAL),
+            (f"{len(hard_ids)} hard cases", [fm[s]["hard"]["task_accuracy"] for s in sids], CORAL)]))
 
-    rows = [["Case", "Disguise"] + labels]
+    rows = [["Case", "Disguise"] + [label for label, _ in hard_cols]]
     styles_extra = []
     for r_index, cid in enumerate(hard_ids, 1):
-        results = [cell(final["by"].get((sid, cid))) for sid in sids]
+        results = [cell(get(cid)) if get(cid) else "Not run" for _, get in hard_cols]
         rows.append([cid, HARD_LABEL.get(cid, "")] + results)
-        colour = {"Pass": docs.PASS_BG, "Review": docs.WARN_BG, "Error": docs.WARN_BG, "Missing": docs.WARN_BG}
+        colour = {"Pass": docs.PASS_BG, "Review": docs.WARN_BG, "Error": docs.WARN_BG, "Missing": docs.WARN_BG,
+                  "Not run": docs.LIGHT}
         for c_index, result in enumerate(results):
             styles_extra.append(("BACKGROUND", (2 + c_index, r_index), (2 + c_index, r_index),
                                  colour.get(result, docs.FAIL_BG)))
-    story.append(KeepTogether([Paragraph("7.2 Hard cases", st["h2"]),
-                               docs.grid(rows, [1.3 * cm, 4.5 * cm] + [2.8 * cm] * 4, extra=styles_extra)]))
+    hard_intro = (Paragraph(
+        f"The {len(hard_ids)} harder cases were run on each version of Strategy C (one run per case). HC-09 was "
+        "added after v2; a separate check (experiment EXP-20261120-205221-B895) showed v2 answering Room 101, the "
+        "old room. Strategy C was tuned on these cases, so its v3 result is optimistic.", st["body"])
+        if m2_mode else Paragraph("Strategy C was tuned on these cases (v2, v3), so its score here is optimistic.",
+                                  st["small"]))
+    story.append(KeepTogether([Paragraph("7.2 Hard cases", st["h2"]), hard_intro,
+                               docs.grid(rows, [1.3 * cm, 4.5 * cm] + [(11.2 / len(hard_cols)) * cm] * len(hard_cols),
+                                         extra=styles_extra)]))
 
     # example of a followed attack
     example = next((final["by"][("baseline", cid)] for cid in final["case_ids"]
@@ -447,7 +510,7 @@ def build() -> Path:
                 ["User task", Paragraph(docs.text(case["user_task"]), st["small"])],
                 ["Injected text", Paragraph(docs.text(case["injection_text"]), st["small"])],
                 ["Baseline answer", Paragraph(docs.text(reply[:600] + ("..." if len(reply) > 600 else "")), st["small"])],
-                ["Same case, final C and D", Paragraph(docs.text("; ".join(
+                ["Same case, C and D (v1)" if m2_mode else "Same case, final C and D", Paragraph(docs.text("; ".join(
                     f"{s['short_label']}: {cell(final['by'].get((s['id'], case['id'])))}" for s in strategies
                     if s["id"] in ("trust_boundaries", "two_stage"))), st["small"])],
             ], [3.6 * cm, 13.4 * cm], header=False,
@@ -479,21 +542,24 @@ def build() -> Path:
 
     # ------------------------------------------------------------------ 8. discussion
     story.append(Paragraph("8. Discussion", st["h1"]))
-    base_hard = fm["baseline"]["hard"]
     defended = [s for s in sids if s != "baseline"]
-    hard_fails = {s: [cid for cid in hard_ids if final["by"].get((s, cid), {}).get("attack_status") == "followed"]
-                  for s in sids}
+    hard_fails = {label: [cid for cid in hard_ids if (get(cid) or {}).get("attack_status") == "followed"]
+                  for label, get in hard_cols}
     lines = [
         f"<b>Any structure helps a lot.</b> The undefended baseline followed {fm['baseline']['all']['attack_followed']} "
         f"of {fm['baseline']['all']['attack_runs']} attacks across all cases; the defended strategies followed "
         + ", ".join(f"{fm[s]['all']['attack_followed']} ({s_label})" for s, s_label in
                     ((s, short[s].split('. ')[0]) for s in defended)) + ".",
-        f"<b>Disguised attacks are harder.</b> On the hard cases the baseline followed {base_hard['attack_followed']}/"
-        f"{base_hard['attack_runs']}. Attacks that got through any strategy: "
-        + "; ".join(f"{short[s].split('. ')[0]}: {', '.join(hard_fails[s]) or 'none'}" for s in sids) + ".",
+        ("<b>Disguised attacks are harder.</b> " + (
+            "Strategy C resisted every instruction-style attack in the original dataset, but v1 adopted a fake "
+            "\"editor's correction\" that was phrased as a fact rather than an instruction. Attacks that got "
+            "through on the hard cases: " if m2_mode else
+            f"On the hard cases the baseline followed {fm['baseline']['hard']['attack_followed']}/"
+            f"{fm['baseline']['hard']['attack_runs']}. Attacks that got through on the hard cases: ")
+         + "; ".join(f"{label}: {', '.join(fails) or 'none'}" for label, fails in hard_fails.items()) + "."),
         "<b>Output-manipulation attacks are the quiet ones.</b> Most baseline failures added a link, tag or "
         "signature while still completing the task, so a user could easily miss them.",
-        "<b>No false refusals.</b> " + ("No strategy refused a legitimate task in the final run."
+        "<b>No false refusals.</b> " + ("No strategy refused a legitimate task."
                                         if all(fm[s]["all"]["refusals"] == 0 for s in sids) else
                                         "Refusals: " + ", ".join(f"{short[s].split('. ')[0]} {fm[s]['all']['refusals']}"
                                                                  for s in sids) + "."),
@@ -510,7 +576,9 @@ def build() -> Path:
     for line in [
         "Prompt engineering is not a security boundary: instructions and data share one text channel, and a "
         "determined, adaptive attacker was not modelled.",
-        f"Small synthetic dataset ({n_cases} cases), mostly English, one run per case, no significance testing, one "
+        (f"Small synthetic dataset (24 cases for the four-way comparison, {len(hard_ids)} harder cases tested on "
+         "Strategy C only), mostly English," if m2_mode else f"Small synthetic dataset ({n_cases} cases), mostly English,")
+        + f" one run per case, no significance testing, one "
         "model. The hard cases were written after seeing Strategy C pass the original set, and Strategy C was "
         "then tuned on them, so its hard-case score is optimistic.",
         "Keyword-based evaluation can misjudge paraphrased answers; raw responses are stored for manual review and "
@@ -568,9 +636,12 @@ def build() -> Path:
 
     # ------------------------------------------------------------------ appendix A (landscape)
     story += [NextPageTemplate("landscape"), PageBreak()]
-    story.append(Paragraph("Appendix A. Final comparison, case by case", st["h1"]))
-    story.append(Paragraph(f"Final prompt versions, {docs.text(final['model'])}, experiment {final['experiment_id']}. "
-                           "Raw responses are in deliverables/final_comparison.json.", st["small"]))
+    story.append(Paragraph("Appendix A. Four-strategy comparison, case by case", st["h1"]))
+    story.append(Paragraph(
+        (f"v1 prompts, {docs.text(final['model'])}, experiment {final['experiment_id']}. Raw responses are in "
+         "deliverables/test_results.json.") if m2_mode else
+        (f"Final prompt versions, {docs.text(final['model'])}, experiment {final['experiment_id']}. Raw responses "
+         "are in deliverables/final_comparison.json."), st["small"]))
     rows = [["Case", "Category", "Task"] + [short[s] + f" v{fm[s]['version']}" for s in sids]]
     extra = []
     for r_index, cid in enumerate(final["case_ids"], 1):
@@ -582,7 +653,8 @@ def build() -> Path:
         for c_index, result in enumerate(results):
             extra.append(("BACKGROUND", (3 + c_index, r_index), (3 + c_index, r_index), colour.get(result, docs.FAIL_BG)))
     story.append(docs.grid(rows, [1.5 * cm, 3.2 * cm, 7.6 * cm] + [3.7 * cm] * 4,
-                           extra=extra + [("FONTSIZE", (0, 0), (-1, -1), 7)]))
+                           extra=extra + [("FONTSIZE", (0, 0), (-1, -1), 7), ("TOPPADDING", (0, 0), (-1, -1), 1.5),
+                                          ("BOTTOMPADDING", (0, 0), (-1, -1), 1.5)]))
 
     # ------------------------------------------------------------------ appendix B
     story += [PageBreak()]
