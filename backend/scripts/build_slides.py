@@ -208,7 +208,7 @@ def build() -> Path:
     drawing.width, drawing.height = drawing.width * 1.3, drawing.height * 1.3
     renderPDF.draw(drawing, c, 40, 120)
     bullets(c, ["Next.js + FastAPI + SQLite", f"Real LLM: {data['model']} (free tier)",
-                "7 working modules", "Live at contextshield-iota.vercel.app", "93 automated tests"],
+                "7 working modules", "Live at contextshield-iota.vercel.app", "95 automated tests"],
             690, 400, 230, size=15, gap=12)
 
     # 5. strategies

@@ -298,7 +298,7 @@ def build() -> Path:
         ["Backend", "Python 3, FastAPI, Pydantic v2, httpx, SQLite, ReportLab"],
         ["Frontend", "Next.js 16, React 19, TypeScript, Tailwind CSS 4, Recharts"],
         ["Deployment", "Vercel (frontend and API); public demo preloaded with the real experiment results"],
-        ["Quality", "93 automated backend tests (pytest), ESLint, TypeScript type-check"],
+        ["Quality", "95 automated backend tests (pytest), ESLint, TypeScript type-check"],
         ["Development aid", Paragraph("Code written with the help of an AI coding assistant (Claude Code), "
                                      "reviewed and tested by the team.", st["small"])],
     ], [4 * cm, 13 * cm]))
